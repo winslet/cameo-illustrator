@@ -65,8 +65,11 @@ def test_progress_callback_is_forwarded(square, monkeypatch):
         progress_cb=lambda done, total, flags: seen.append((done, total, flags)),
     )
 
-    captured["progress_cb"](32, 128, "")
-    assert seen == [(32, 128, "")]
+    # The job itself now reports real progress (see the patch in
+    # cameo_helper.patches), so isolate the manual call from those.
+    seen.clear()
+    captured["progress_cb"](32, 128, "t")
+    assert seen == [(32, 128, "t")]
 
 
 def test_cancellation_raises_out_of_the_callback(square, monkeypatch):
@@ -86,6 +89,100 @@ def test_cancellation_raises_out_of_the_callback(square, monkeypatch):
     event.set()
     with pytest.raises(jobs.JobCancelled):
         captured["progress_cb"](1, 100, "")
+
+
+def _long_design(count=300):
+    return [[(10.0, 10.0 + i * 0.4), (100.0, 10.0 + i * 0.4)] for i in range(count)]
+
+
+def test_progress_is_reported_while_plotting():
+    """Regression: progress was never reported for the actual cut.
+
+    plot() sends geometry via safe_write in <=1024-byte packets, but write()
+    only reported from a 4096-byte chunk loop that also skipped its first pass —
+    so a packet produced exactly one iteration with o == 0 and no callback ever
+    fired. The bar sat still for the whole job. See cameo_helper.patches.
+    """
+    events = []
+    jobs.run_cut(
+        jobs.CutParams(paths=_long_design(), dry_run=True),
+        progress_cb=lambda done, total, flags: events.append((done, total)),
+    )
+
+    assert len(events) > 1, "no progress reported during the plot"
+
+
+def test_progress_is_monotonic_and_bounded():
+    """A bar that jumps backwards or past 100% reads as broken.
+
+    safe_write polls the device between packets, and those status queries go
+    through write() too — counting them pushed `done` past `total`.
+    """
+    events = []
+    jobs.run_cut(
+        jobs.CutParams(paths=_long_design(), dry_run=True),
+        progress_cb=lambda done, total, flags: events.append((done, total)),
+    )
+
+    done = [d for d, _ in events]
+    assert done == sorted(done), f"progress went backwards: {done}"
+    assert all(d <= t for d, t in events), f"progress exceeded total: {events}"
+    assert events[-1][0] == events[-1][1], "did not finish at 100%"
+
+
+def test_cancel_stops_the_job_partway():
+    """Cancel must actually stop sending, not just set a flag at the end."""
+    full = jobs.run_cut(jobs.CutParams(paths=_long_design(), dry_run=True))
+
+    cancel = threading.Event()
+    cancel.set()
+    cancelled = jobs.run_cut(
+        jobs.CutParams(paths=_long_design(), dry_run=True), cancel_event=cancel
+    )
+
+    assert cancelled.cancelled is True
+    assert len(cancelled.transcript) < len(full.transcript), (
+        "cancelling sent as many bytes as a full job — it did not stop early"
+    )
+
+
+def test_pen_is_inferred_from_the_media_preset():
+    """Media 113 is a pen, and MatFree must be told before it reorders.
+
+    The driver infers this in setup(), which runs after the strategy. Coercing
+    an unset value would make MatFree extend every stroke by its 0.2mm blade
+    overshoot — correct for a blade, visible ink past the corners for a pen.
+    """
+    assert _pen_for(media=113) is True
+    assert _pen_for(media=132) is False
+
+    # An explicit setting always wins over the media default.
+    assert _pen_for(media=113, pen=False) is False
+    assert _pen_for(media=132, pen=True) is True
+
+
+def _pen_for(media, pen=None):
+    return jobs._resolve_pen(jobs.CutParams(paths=[[(0, 0), (1, 1)]], media=media, pen=pen))
+
+
+def test_pen_media_suppresses_matless_overshoot():
+    """The user-visible consequence of the pen inference above."""
+    shapes = [
+        [(10.0, 10.0), (30.0, 10.0), (30.0, 30.0), (10.0, 30.0), (10.0, 10.0)],
+        [(50.0, 50.0), (70.0, 50.0), (60.0, 70.0), (50.0, 50.0)],
+    ]
+    blade = jobs.run_cut(
+        jobs.CutParams(paths=shapes, dry_run=True, matless=True, media=132)
+    )
+    pen = jobs.run_cut(
+        jobs.CutParams(paths=shapes, dry_run=True, matless=True, media=113)
+    )
+
+    blade_w = blade.bbox["width_mm"]
+    pen_w = pen.bbox["width_mm"]
+    assert pen_w < blade_w, (
+        f"pen media should not overshoot: pen {pen_w} vs blade {blade_w}"
+    )
 
 
 def test_paths_accept_lists_as_well_as_tuples():

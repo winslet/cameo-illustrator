@@ -133,6 +133,28 @@ def _flatten_bbox(raw: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+#: Media code the device treats as "a pen, not a blade".
+PEN_MEDIA = 113
+
+
+def _resolve_pen(params: "CutParams") -> bool:
+    """Work out whether a pen is loaded, the same way the driver does.
+
+    `SilhouetteCameo.setup()` infers this from the media code when `pen` is not
+    given, but that runs *after* the matless strategy has already reordered the
+    paths. Coercing an unset value with `bool(None)` would tell MatFree a blade
+    is loaded, and it would then extend every stroke by its 0.2mm overshoot —
+    which is right for a blade, and visible ink past the corners for a pen.
+
+    Duplicating the rule is deliberate: the alternative is running the strategy
+    after setup(), which would mean opening the device before we know what to
+    send it.
+    """
+    if params.pen is not None:
+        return bool(params.pen)
+    return params.media == PEN_MEDIA
+
+
 def _normalise(paths: Sequence[Polyline]) -> list[list[tuple[float, float]]]:
     """Coerce incoming JSON into the tuple-of-floats shape the driver expects.
 
@@ -168,7 +190,7 @@ def run_cut(
         # MatFree reorders cuts so the material is never pulled apart by a cut
         # upstream of where the blade still has to travel.
         strategy = driver.MatFree(
-            params.matless_preset, scale=1.0, pen=bool(params.pen)
+            params.matless_preset, scale=1.0, pen=_resolve_pen(params)
         )
         with driver.quiet_stdout():
             paths = _normalise(strategy.apply(paths))

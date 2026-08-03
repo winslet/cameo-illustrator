@@ -129,6 +129,38 @@ var CameoExtract = (function () {
 
   // ---- document walk ---------------------------------------------------
 
+  /*
+   * Is this item inside a hidden or locked layer or group?
+   *
+   * Illustrator does not propagate a layer's state onto its children: a path on
+   * a hidden layer still reports hidden === false. Checking only the item's own
+   * flags therefore sends artwork the user has explicitly hidden to the cutter
+   * and ruins their material. The ancestor chain has to be walked.
+   *
+   * Layers expose `visible`; page items expose `hidden`. Sublayers nest, so
+   * this walks all the way up rather than checking one level.
+   */
+  function inHiddenOrLockedContainer(item) {
+    var node = item;
+    while (node) {
+      var parent;
+      try {
+        parent = node.parent;
+      } catch (e) {
+        return false; // reached the top, or an item without a parent
+      }
+      if (!parent || parent.typename === "Document") return false;
+
+      if (parent.typename === "Layer") {
+        if (parent.visible === false || parent.locked === true) return true;
+      } else if (parent.hidden === true || parent.locked === true) {
+        return true;
+      }
+      node = parent;
+    }
+    return false;
+  }
+
   function Collector(mapper, flatnessMm) {
     this.mapper = mapper;
     this.flatness = flatnessMm;
@@ -267,6 +299,10 @@ var CameoExtract = (function () {
           var parentType = source[i].parent.typename;
           if (parentType !== "Layer" && parentType !== "Document") continue;
         }
+        // Checked here rather than inside visit(): recursion only descends into
+        // containers already found visible and unlocked, so one ancestor walk
+        // per entry point is enough and avoids re-walking for every nested path.
+        if (inHiddenOrLockedContainer(source[i])) continue;
         collector.visit(source[i]);
       }
 
@@ -343,6 +379,9 @@ var CameoExtract = (function () {
     collectToFile: collectToFile,
     serialise: serialise,
     pathToPolyline: pathToPolyline,
-    makeMapper: makeMapper
+    makeMapper: makeMapper,
+    // Exported for tests: this cannot be exercised without Illustrator
+    // otherwise, and getting it wrong sends hidden artwork to the cutter.
+    inHiddenOrLockedContainer: inHiddenOrLockedContainer
   };
 })();

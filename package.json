@@ -5,7 +5,9 @@
   "license": "GPL-2.0-only",
   "private": true,
   "scripts": {
-    "test": "node --test \"cep/test/*.test.js\"",
+    "_comment": "The glob is unquoted so the shell expands it. Quoting makes Node do the globbing, which it only supports from v22 — and CEP itself bundles Node 17.",
+    "test": "node scripts/check-panel-syntax.js && node --test cep/test/*.test.js",
+    "check:syntax": "node scripts/check-panel-syntax.js",
     "test:py": "cd helper && PYTHONPATH=. ../.venv/bin/python -m pytest tests/ -q",
     "test:all": "npm run test:py && npm test",
     "selftest": "PYTHONPATH=helper .venv/bin/python -m cameo_helper --selftest"

@@ -97,8 +97,10 @@ to travel.
 ### What gets cut
 
 Paths, compound paths and groups cut directly. Text is outlined automatically (on
-a temporary duplicate — **your artwork is never modified**). Hidden art, locked
-art, and guides are skipped.
+a temporary duplicate — **your artwork is never modified**). Guides are skipped,
+as is anything hidden or locked — including artwork that only inherits that state
+from a hidden or locked **layer**, which Illustrator does not mark on the items
+themselves.
 
 Placed images, symbols, blends and envelopes cannot be cut and are reported in the
 panel rather than silently dropped. Expand them first (**Object → Expand**).
@@ -127,7 +129,7 @@ does this.
 cd helper && PYTHONPATH=. ../.venv/bin/python -m pytest tests/ -q
 
 # JavaScript: bézier flattening, coordinate mapping, and the live RPC link
-node --test "cep/test/*.test.js"
+node --test cep/test/*.test.js
 
 # Check what the driver sees without opening Illustrator
 PYTHONPATH=helper .venv/bin/python -m cameo_helper --selftest

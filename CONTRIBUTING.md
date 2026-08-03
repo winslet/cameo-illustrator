@@ -18,7 +18,7 @@ cd cameo-illustrator
 Then quit Illustrator completely and reopen it. The panel appears under
 **Window → Extensions → Send to Silhouette**.
 
-You need macOS, Illustrator 2020+, Python 3.9+ and Node 20+. You do **not** need
+You need macOS, Illustrator 2020+, Python 3.9+ and Node 18+. You do **not** need
 a Silhouette machine to work on most of this — see below.
 
 ## Running the tests
@@ -29,8 +29,18 @@ npm test              # JavaScript only
 npm run test:py       # Python only
 ```
 
-Both suites must pass before a PR can be merged. CI runs them on macOS and
-Linux, across Python 3.12/3.14 and Node 20/22, plus a Python 3.9 runtime check.
+Both suites must pass before a PR can be merged.
+
+CI deliberately runs a small matrix, because every job in it maps to something
+that actually ships: Python 3.12 (bundled in the `.pkg`), Python 3.14 (standing
+in for the Python a `.zxp` user brings), Python 3.9 (the documented floor, and
+what macOS itself ships), the JavaScript suite, a packaging check that runs the
+helper out of an unpacked `.zxp`, and shellcheck.
+
+It is macOS-first because that is the only platform the plugin runs on. Node is
+tested on one version only — the panel never runs on it, so compatibility with
+real hosts is enforced by `scripts/check-panel-syntax.js` instead. See the
+runtime section below.
 
 ## Working without hardware
 
@@ -87,6 +97,46 @@ an explanation.
 under Node (`cep/test/host.test.js`) because the geometry maths is where the
 real bugs live, so keep it loadable outside Illustrator — no top-level DOM
 access.
+
+### The panel's JavaScript must parse on Chromium 61
+
+`cep/js/*.js` executes inside CEP, whose version is decided by the *host
+application*, not by you. The manifest advertises Illustrator 2020 and newer, so
+the floor is what Illustrator 2020 ships:
+
+| Illustrator | CEP | Chromium | Node |
+| --- | --- | --- | --- |
+| 2020 (24.x) — **our floor** | 9 | **61** | **8.6** |
+| 2021–2022 | 10–11 | 74–88 | 12–15 |
+| 2026 (30.x) | 12 | 99 | 17.7 |
+
+The risk is reaching for something too **new**. Write ES5-flavoured JavaScript
+and you will be fine; the existing panel code already does.
+
+This is sharper than an ordinary compatibility concern. **Optional chaining is a
+parse error in Chromium 61** — one `?.` does not degrade a feature, it stops the
+whole file loading and the panel never appears. And CI cannot catch it, because
+every Node version in the matrix is far newer than the floor.
+
+So there is a backstop:
+
+```bash
+node scripts/check-panel-syntax.js
+```
+
+It runs in CI and rejects constructs that postdate the floor — optional
+chaining, nullish coalescing, logical assignment, `globalThis`,
+`Object.fromEntries`, `flat`/`flatMap`, `replaceAll`, `structuredClone` and
+friends. It is a heuristic, not a parser, so it backs up this guidance rather
+than replacing it.
+
+If you genuinely need newer syntax, raise the `Host` range in
+`cep/CSXS/manifest.xml` first and update the table above — dropping support for
+older Illustrator versions is a decision to make deliberately, not a side effect.
+
+CI's Node floor is 18 because `node:test` did not exist before it. The suite
+therefore cannot run on any CEP version at all, which is exactly why the syntax
+check exists.
 
 ### Coordinates
 
