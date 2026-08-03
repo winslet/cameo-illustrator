@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Send to Silhouette</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="bar">
+      <div class="device">
+        <span id="device-dot" class="dot"></span>
+        <span id="device-name">Looking for a cutter…</span>
+      </div>
+      <button id="refresh" class="icon-btn" title="Look for the cutter again">↻</button>
+    </header>
+
+    <div id="banner" class="banner hidden"></div>
+
+    <main id="scroll-area">
+    <section class="panel-section">
+      <h2>Material</h2>
+      <select id="media"></select>
+      <div class="preset-readout">
+        <span id="preset-summary">—</span>
+        <span id="cap-swatch" class="cap" title="Recommended blade cap"></span>
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <h2>Tool</h2>
+      <div class="grid">
+        <label for="speed">Speed</label>
+        <input type="number" id="speed" min="1" max="30" placeholder="preset">
+
+        <label for="pressure">Pressure</label>
+        <input type="number" id="pressure" min="1" max="40" placeholder="preset">
+
+        <label for="depth">Blade depth</label>
+        <input type="number" id="depth" min="0" max="10" placeholder="preset">
+
+        <label for="toolholder">Tool holder</label>
+        <select id="toolholder">
+          <option value="1">1 — left / red</option>
+          <option value="2">2 — right / blue</option>
+        </select>
+
+        <label for="passes">Passes</label>
+        <input type="number" id="passes" min="1" max="10" value="1">
+      </div>
+      <p class="hint">Leave speed, pressure and depth empty to use the material preset.</p>
+    </section>
+
+    <section class="panel-section">
+      <h2>Placement</h2>
+      <div class="grid">
+        <label for="offset-x">Offset X (mm)</label>
+        <input type="number" id="offset-x" step="0.5" value="0">
+
+        <label for="offset-y">Offset Y (mm)</label>
+        <input type="number" id="offset-y" step="0.5" value="0">
+
+        <label for="mat">Cutting mat</label>
+        <select id="mat"></select>
+      </div>
+      <p id="margin-note" class="hint hidden"></p>
+    </section>
+
+    <section class="panel-section">
+      <h2>Options</h2>
+      <label class="check">
+        <input type="checkbox" id="matless">
+        <span>Cut without a mat<em>Reorders cuts so the material is not pulled apart</em></span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="bbox-only">
+        <span>Bounding box only<em>Traces the outline — a cheap test on scrap</em></span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="dry-run">
+        <span>Dry run<em>Simulate without moving the cutter</em></span>
+      </label>
+    </section>
+
+    <div id="warnings" class="warnings hidden"></div>
+    </main>
+
+    <footer class="actions">
+      <div id="status" class="status">Ready</div>
+      <div id="progress-track" class="progress hidden"><div id="progress-bar"></div></div>
+      <div class="buttons">
+        <button id="preview" class="secondary">Preview</button>
+        <button id="send" class="primary">Send to Silhouette</button>
+        <button id="cancel" class="danger hidden">Cancel</button>
+      </div>
+    </footer>
+  </div>
+
+  <div id="preview-overlay" class="overlay hidden">
+    <div class="overlay-inner">
+      <div class="overlay-head">
+        <strong>Cut preview</strong>
+        <button id="preview-close" class="icon-btn">✕</button>
+      </div>
+      <div id="preview-body" class="overlay-body"></div>
+      <div id="preview-meta" class="overlay-meta"></div>
+    </div>
+  </div>
+
+  <script src="js/CSInterface.js"></script>
+  <script src="js/helper.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

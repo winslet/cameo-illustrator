@@ -1,0 +1,76 @@
+name: Bug report
+description: Something is broken
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If it involves a specific cutting machine behaving oddly, the
+        **Device report** template collects better information — use that one.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a document with …
+        2. Select …
+        3. Press Preview
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: macOS, Illustrator and plugin versions
+      placeholder: "macOS 15.2, Illustrator 2026 (30.6), plugin 0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - The .pkg installer
+        - The .zxp extension
+        - From source (scripts/dev-install.sh)
+    validations:
+      required: true
+
+  - type: textarea
+    id: panel-message
+    attributes:
+      label: Anything the panel said
+      description: The status line at the bottom, and any coloured banner.
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Logs
+
+        The panel's own console often has the answer. With the panel open, visit
+        <http://localhost:8088> in Chrome and check the Console tab. That only
+        works for source installs; for a packaged install, the helper's messages
+        appear in Console.app under the Illustrator process.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output
+      render: text

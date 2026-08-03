@@ -1,0 +1,87 @@
+name: Device report
+description: Tell us whether it worked on your machine — success or failure
+title: "[Device] "
+labels: ["device-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project supports 19 machines that no single person owns. Reports
+        are how models get confirmed, so **please file one even if everything
+        worked perfectly** — that is exactly the information the project lacks.
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: How did it go?
+      options:
+        - It worked
+        - It worked, but the placement or sizing was off
+        - It connected but did not cut correctly
+        - It was not detected at all
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Machine
+      description: As printed on the machine, e.g. "Cameo 4 Pro", "Portrait 2"
+    validations:
+      required: true
+
+  - type: input
+    id: detected
+    attributes:
+      label: What the panel showed in its header
+      description: e.g. "Silhouette Cameo4 Pro", or "No cutter found"
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: macOS and Illustrator versions
+      placeholder: "macOS 15.2, Illustrator 2026 (30.6)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: |
+        If the cut was wrong, measurements help enormously — cut a 10 mm square
+        and tell us what it actually measured.
+    validations:
+      required: true
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings used
+      placeholder: "Material: Vinyl Sticker. Passes: 1. Cut without a mat: off."
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Optional but very useful
+
+        The exact byte stream sent to your machine. It contains no personal
+        information — just cutter commands — and it lets a maintainer reproduce
+        your case without owning your model.
+
+        Tick **Dry run** in the panel, press **Send**, then run this in Terminal
+        and paste the output:
+
+        ```bash
+        PYTHONPATH="/Library/Application Support/Adobe/CEP/extensions/com.samwinslet.cameo-illustrator/helper" \
+          python3 -m cameo_helper --selftest
+        ```
+
+  - type: textarea
+    id: transcript
+    attributes:
+      label: Self-test output
+      render: text

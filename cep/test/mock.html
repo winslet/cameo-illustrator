@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<!--
+  Development harness for the panel UI.
+
+  Loads the real index.html markup, the real style.css and the real main.js, but
+  stubs the two things only Illustrator can provide: CSInterface (the host
+  bridge) and CameoHelper (which needs Node to spawn a process). Catalog data is
+  the genuine article, captured from `python -m cameo_helper --info`.
+
+  This makes the panel's layout, theming and interaction testable in a browser.
+  It cannot test the real geometry extraction or an actual cut.
+
+    python3 -m http.server 8899 --directory cep
+    open http://localhost:8899/test/mock.html
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Send to Silhouette — mock</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /*
+     * An Illustrator panel is narrow and fixed-height. The browser window is
+     * neither, so pin #app to realistic panel dimensions — otherwise the
+     * two-column grids stretch and the layout looks nothing like the real thing.
+     */
+    html, body { height: 100%; overflow: auto; background: #1a1a1a; }
+    body { display: flex; align-items: flex-start; justify-content: center;
+           padding: 16px 0 48px; }
+    #app {
+      width: 340px;
+      height: 640px;
+      flex: 0 0 auto;
+      border: 1px solid #000;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    }
+    #mock-controls {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #1c1c1c; border-top: 2px solid #555;
+      padding: 6px 8px; font-size: 10px; color: #999;
+      display: flex; gap: 6px; align-items: center; z-index: 100;
+    }
+    #mock-controls button { flex: 0 0 auto; padding: 3px 7px; font-weight: normal; }
+    .overlay { position: absolute; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="bar">
+      <div class="device">
+        <span id="device-dot" class="dot"></span>
+        <span id="device-name">Looking for a cutter…</span>
+      </div>
+      <button id="refresh" class="icon-btn" title="Look for the cutter again">↻</button>
+    </header>
+
+    <div id="banner" class="banner hidden"></div>
+
+    <main id="scroll-area">
+    <section class="panel-section">
+      <h2>Material</h2>
+      <select id="media"></select>
+      <div class="preset-readout">
+        <span id="preset-summary">—</span>
+        <span id="cap-swatch" class="cap" title="Recommended blade cap"></span>
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <h2>Tool</h2>
+      <div class="grid">
+        <label for="speed">Speed</label>
+        <input type="number" id="speed" min="1" max="30" placeholder="preset">
+        <label for="pressure">Pressure</label>
+        <input type="number" id="pressure" min="1" max="40" placeholder="preset">
+        <label for="depth">Blade depth</label>
+        <input type="number" id="depth" min="0" max="10" placeholder="preset">
+        <label for="toolholder">Tool holder</label>
+        <select id="toolholder">
+          <option value="1">1 — left / red</option>
+          <option value="2">2 — right / blue</option>
+        </select>
+        <label for="passes">Passes</label>
+        <input type="number" id="passes" min="1" max="10" value="1">
+      </div>
+      <p class="hint">Leave speed, pressure and depth empty to use the material preset.</p>
+    </section>
+
+    <section class="panel-section">
+      <h2>Placement</h2>
+      <div class="grid">
+        <label for="offset-x">Offset X (mm)</label>
+        <input type="number" id="offset-x" step="0.5" value="0">
+        <label for="offset-y">Offset Y (mm)</label>
+        <input type="number" id="offset-y" step="0.5" value="0">
+        <label for="mat">Cutting mat</label>
+        <select id="mat"></select>
+      </div>
+      <p id="margin-note" class="hint hidden"></p>
+    </section>
+
+    <section class="panel-section">
+      <h2>Options</h2>
+      <label class="check">
+        <input type="checkbox" id="matless">
+        <span>Cut without a mat<em>Reorders cuts so the material is not pulled apart</em></span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="bbox-only">
+        <span>Bounding box only<em>Traces the outline — a cheap test on scrap</em></span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="dry-run">
+        <span>Dry run<em>Simulate without moving the cutter</em></span>
+      </label>
+    </section>
+
+    <div id="warnings" class="warnings hidden"></div>
+    </main>
+
+    <footer class="actions">
+      <div id="status" class="status">Ready</div>
+      <div id="progress-track" class="progress hidden"><div id="progress-bar"></div></div>
+      <div class="buttons">
+        <button id="preview" class="secondary">Preview</button>
+        <button id="send" class="primary">Send to Silhouette</button>
+        <button id="cancel" class="danger hidden">Cancel</button>
+      </div>
+    </footer>
+  </div>
+
+  <div id="preview-overlay" class="overlay hidden">
+    <div class="overlay-inner">
+      <div class="overlay-head">
+        <strong>Cut preview</strong>
+        <button id="preview-close" class="icon-btn">✕</button>
+      </div>
+      <div id="preview-body" class="overlay-body"></div>
+      <div id="preview-meta" class="overlay-meta"></div>
+    </div>
+  </div>
+
+  <div id="mock-controls">
+    <strong style="color:#ddd">MOCK</strong>
+    <button onclick="MockState.set('connected')">Connected</button>
+    <button onclick="MockState.set('disconnected')">No cutter</button>
+    <button onclick="MockState.set('error')">Helper error</button>
+    <button onclick="MockState.set('warnings')">With warnings</button>
+    <button onclick="document.body.classList.toggle('theme-light')">Theme</button>
+  </div>
+
+  <script src="mock-data.js"></script>
+  <script>
+    /* --- stub the Illustrator host bridge --------------------------------- */
+    var SystemPath = { EXTENSION: "extension" };
+
+    function CSInterface() {}
+    CSInterface.prototype.getSystemPath = function () { return "/mock/extension"; };
+    CSInterface.prototype.getHostEnvironment = function () {
+      var light = document.body.classList.contains("theme-light");
+      var v = light ? 240 : 50;
+      return { appSkinInfo: { panelBackgroundColor: { color: { red: v, green: v, blue: v } } } };
+    };
+    CSInterface.prototype.evalScript = function (code, callback) {
+      // Pretend Illustrator extracted a small design.
+      setTimeout(function () {
+        callback(JSON.stringify({
+          ok: true,
+          file: "/mock/extract.json",
+          source: "selection",
+          artboard: { name: "Artboard 1", width_mm: 210, height_mm: 297 },
+          stats: { paths: 3, points: 148, flatness_mm: 0.05 },
+          warnings: MockState.mode === "warnings" ? MOCK_WARNINGS : []
+        }));
+      }, 120);
+    };
+
+    /* --- stub the helper client ------------------------------------------ */
+    var MockState = {
+      mode: "connected",
+      set: function (mode) {
+        this.mode = mode;
+        location.hash = mode;
+        location.reload();
+      }
+    };
+    if (location.hash) MockState.mode = location.hash.slice(1);
+
+    var CameoHelper = {
+      Client: function () {
+        this.isSupported = function () { return true; };
+        this.start = function () {
+          return MockState.mode === "error"
+            ? Promise.reject(new Error("Could not find Python 3 or a bundled helper binary."))
+            : Promise.resolve({ mode: "venv" });
+        };
+        this.stop = function () {};
+        this.call = function (method, params, onEvent) {
+          if (method === "list_media") return Promise.resolve({ media: MOCK_MEDIA });
+          if (method === "list_devices") {
+            return Promise.resolve({
+              attached: MockState.mode === "disconnected" ? MOCK_NO_DEVICE : MOCK_DEVICE,
+              catalog: MOCK_CATALOG,
+              cutting_mats: MOCK_MATS
+            });
+          }
+          if (method === "cut") {
+            return new Promise(function (resolve) {
+              var percent = 0;
+              var timer = setInterval(function () {
+                percent += 12;
+                if (onEvent && percent <= 100) {
+                  onEvent({ event: "progress", percent: percent, done: percent, total: 100 });
+                }
+                if (percent >= 100) {
+                  clearInterval(timer);
+                  resolve({
+                    bbox: { llx: 10, urx: 96.4, lly: 72.1, ury: 10, width_mm: 86.4, height_mm: 62.1 },
+                    device: MOCK_DEVICE.name,
+                    path_count: 3,
+                    point_count: 148,
+                    cancelled: false,
+                    preview_svg: MOCK_PREVIEW_SVG,
+                    preview_paths: 3
+                  });
+                }
+              }, 140);
+            });
+          }
+          return Promise.resolve({});
+        };
+      }
+    };
+
+    /* main.js reads geometry back through Node's fs; stub that one call. */
+    var require = function (name) {
+      if (name === "fs") {
+        return {
+          readFileSync: function () {
+            return JSON.stringify({
+              ok: true,
+              artboard: { width_mm: 210, height_mm: 297 },
+              stats: { paths: 3, points: 148 },
+              paths: [[[10, 10], [96, 10], [96, 72], [10, 72], [10, 10]]]
+            });
+          },
+          unlinkSync: function () {},
+          existsSync: function () { return true; }
+        };
+      }
+      throw new Error("mock: unexpected require(" + name + ")");
+    };
+  </script>
+  <script src="../js/main.js"></script>
+</body>
+</html>

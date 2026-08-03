@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Only the Actions themselves. The Python dependencies are deliberately
+  # vendored and pinned (see helper/vendor/VENDOR.md) — an automated bump of
+  # the driver would change what real hardware receives without anyone reading
+  # the wire-protocol diff, which is precisely what must not happen
+  # automatically. Use scripts/sync-vendor.sh for that instead.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci

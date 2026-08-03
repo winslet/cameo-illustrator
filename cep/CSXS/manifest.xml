@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CEP, not UXP: as of 2026 Adobe still uses UXP internally for Illustrator only.
+  There is no public UXP API for third-party Illustrator plugins, so CEP is the
+  only option. Silhouette's own Connect plugin is CEP for the same reason.
+
+  RequiredRuntime is declared as CSXS 9.0 rather than 12.0 so the panel loads on
+  Illustrator 2020 and later, not just the newest release. A CEP 12 host runs a
+  9.0-targeted extension fine.
+-->
+<ExtensionManifest Version="9.0"
+                   ExtensionBundleId="com.samwinslet.cameo-illustrator"
+                   ExtensionBundleVersion="0.1.0"
+                   ExtensionBundleName="Cameo for Illustrator"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ExtensionList>
+    <Extension Id="com.samwinslet.cameo-illustrator.panel" Version="0.1.0"/>
+  </ExtensionList>
+
+  <ExecutionEnvironment>
+    <HostList>
+      <!-- Illustrator 2020 (24.0) through anything newer. -->
+      <Host Name="ILST" Version="[24.0,99.9]"/>
+    </HostList>
+    <LocaleList>
+      <Locale Code="All"/>
+    </LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="9.0"/>
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+
+  <DispatchInfoList>
+    <Extension Id="com.samwinslet.cameo-illustrator.panel">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./index.html</MainPath>
+          <ScriptPath>./host/index.jsx</ScriptPath>
+          <CEFCommandLine>
+            <!-- Node is what lets the panel spawn and pipe to the helper
+                 process. Without it there is no way to reach USB at all. -->
+            <Parameter>--enable-nodejs</Parameter>
+            <!-- Keeps Node and the browser context in one JS world, so the
+                 panel code can require() and touch the DOM in the same file. -->
+            <Parameter>--mixed-context</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>true</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>Send to Silhouette</Menu>
+          <Geometry>
+            <Size><Height>620</Height><Width>340</Width></Size>
+            <MinSize><Height>420</Height><Width>300</Width></MinSize>
+          </Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>
