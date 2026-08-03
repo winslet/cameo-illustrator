@@ -83,6 +83,11 @@ jobs:
           print("cut pipeline OK on the documented minimum Python")
           PY
 
+  # CEP 12 bundles Node 17.7.2, so the panel's JavaScript runs on an old
+  # runtime — the risk here is using something too new, not too old. The floor
+  # is 18 rather than 17 only because node:test did not exist before 18; there
+  # is no way to run the suite on CEP's actual version. 22 is here to catch
+  # future deprecations, not because anything runs on it.
   javascript:
     name: Node ${{ matrix.node }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -90,7 +95,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        node: ['20', '22']
+        node: ['18', '22']
     steps:
       - uses: actions/checkout@v4
 
@@ -110,7 +115,8 @@ jobs:
           scripts/link-helper.sh
 
       - name: Run tests
-        run: node --test "cep/test/*.test.js"
+        # Unquoted: the shell expands the glob. Node only globs from v22.
+        run: node --test cep/test/*.test.js
 
   package:
     name: Package

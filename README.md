@@ -125,7 +125,7 @@ does this.
 cd helper && PYTHONPATH=. ../.venv/bin/python -m pytest tests/ -q
 
 # JavaScript: bézier flattening, coordinate mapping, and the live RPC link
-node --test "cep/test/*.test.js"
+node --test cep/test/*.test.js
 
 # Check what the driver sees without opening Illustrator
 PYTHONPATH=helper .venv/bin/python -m cameo_helper --selftest
