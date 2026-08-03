@@ -18,7 +18,7 @@ cd cameo-illustrator
 Then quit Illustrator completely and reopen it. The panel appears under
 **Window → Extensions → Send to Silhouette**.
 
-You need macOS, Illustrator 2020+, Python 3.9+ and Node 20+. You do **not** need
+You need macOS, Illustrator 2020+, Python 3.9+ and Node 18+. You do **not** need
 a Silhouette machine to work on most of this — see below.
 
 ## Running the tests
@@ -29,8 +29,18 @@ npm test              # JavaScript only
 npm run test:py       # Python only
 ```
 
-Both suites must pass before a PR can be merged. CI runs them on macOS and
-Linux, across Python 3.12/3.14 and Node 20/22, plus a Python 3.9 runtime check.
+Both suites must pass before a PR can be merged.
+
+CI deliberately runs a small matrix, because every job in it maps to something
+that actually ships: Python 3.12 (bundled in the `.pkg`), Python 3.14 (standing
+in for the Python a `.zxp` user brings), Python 3.9 (the documented floor, and
+what macOS itself ships), the JavaScript suite, a packaging check that runs the
+helper out of an unpacked `.zxp`, and shellcheck.
+
+It is macOS-first because that is the only platform the plugin runs on. Node is
+tested on one version only — the panel never runs on it, so compatibility with
+real hosts is enforced by `scripts/check-panel-syntax.js` instead. See the
+runtime section below.
 
 ## Working without hardware
 
