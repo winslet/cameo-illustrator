@@ -1,44 +1,13 @@
 # Installing Cameo for Illustrator
 
-> **Use Option 2, the `.zxp`.** It is the only artefact published so far. The
-> `.pkg` installer below is built and working, but shipping it needs an Apple
-> Developer ID for notarisation — without one Gatekeeper blocks it — so no
-> release carries it yet.
+**Requirements:** macOS 11 or newer, Adobe Illustrator 2020 (24.0) or newer, and
+any Python 3.9 or newer.
 
-Two ways to install. They give you the same panel — the difference is only how
-much setup you do.
-
-| | Installer (`.pkg`) | Extension (`.zxp`) |
-| --- | --- | --- |
-| Available | Not yet published | **Yes** |
-| Steps | Double-click, reopen Illustrator | Install Python, install the `.zxp` |
-| Needs Python | No — it brings its own | Yes, any Python 3.9 or newer |
-| Download | ~47 MB | ~1 MB |
-| Warnings at install | None | "Unknown publisher" |
-
-**Requirements for both:** macOS 11 or newer, and Adobe Illustrator 2020 (24.0)
-or newer.
+Two steps: make sure you have Python, then install the extension.
 
 ---
 
-## Option 1 — the installer
-
-*Not yet published — see the note above. These steps are what it will look like.*
-
-1. Download `CameoForIllustrator-<version>.pkg` from the
-   [latest release](https://github.com/winslet/cameo-illustrator/releases).
-2. Double-click it and follow the prompts. You'll be asked for your password,
-   because it installs for all users on the Mac.
-3. Quit Illustrator **completely** and reopen it.
-4. **Window → Extensions → Send to Silhouette**.
-
-That's it — there's no Python step, because the installer carries its own copy.
-
-## Option 2 — the extension
-
-Fewer megabytes, two more steps.
-
-### 1. Make sure you have Python 3
+## 1. Make sure you have Python 3
 
 Open Terminal and run:
 
@@ -54,7 +23,7 @@ install Python from [python.org/downloads](https://www.python.org/downloads/)
 You do **not** need Homebrew, `pip`, or any other package — everything else the
 panel needs is inside the `.zxp`.
 
-### 2. Install the extension
+## 2. Install the extension
 
 1. Download `cameo-illustrator-<version>.zxp` from the
    [latest release](https://github.com/winslet/cameo-illustrator/releases).
@@ -88,13 +57,12 @@ right before you commit an expensive sheet.
 
 **The panel isn't in the Extensions menu.** Illustrator only scans for
 extensions at launch — quit it completely (⌘Q, not just closing the window) and
-reopen. If it's still missing, the extension didn't install; try the other
-installation option.
+reopen. If it's still missing, the extension didn't install; try installing the
+`.zxp` again.
 
 **"The helper is running on Python …, which cannot reach USB".** The panel found
 a Python that's missing its USB support. Install Python from
-[python.org](https://www.python.org/downloads/) and reopen the panel, or use the
-`.pkg` installer, which avoids the problem entirely.
+[python.org](https://www.python.org/downloads/) and reopen the panel.
 
 **"No cutter found" with the machine plugged in.** Check it's switched on and
 that Silhouette Studio isn't currently connected to it — only one program can
@@ -112,11 +80,11 @@ is never modified.
 
 ## Uninstalling
 
-The installer puts everything in one folder:
+Remove it with the same ZXP installer you used to install it, or delete the
+extension folder directly:
 
 ```bash
-sudo rm -rf "/Library/Application Support/Adobe/CEP/extensions/com.samwinslet.cameo-illustrator"
+rm -rf "$HOME/Library/Application Support/Adobe/CEP/extensions/com.samwinslet.cameo-illustrator"
 ```
 
-If you used the `.zxp`, remove it with the same ZXP installer, or delete the
-same-named folder from `~/Library/Application Support/Adobe/CEP/extensions/`.
+Then quit Illustrator completely and reopen it.

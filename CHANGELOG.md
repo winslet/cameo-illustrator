@@ -17,8 +17,8 @@ First release. Not yet tested against a physical cutter.
 
 - Illustrator panel (CEP) that sends artwork to a Silhouette cutter without a
   Silhouette Studio round-trip.
-- Support for 19 machines: Cameo 1–5 (incl. Plus, Pro, Alpha), Portrait 1–4,
-  Curio, Craft Robo CC200/CC300, Silhouette SD 1–2.
+- Support for 19 machines: Cameo 1–5 (incl. Plus, Pro, Alpha), Cameo Pro MK-II,
+  Portrait 1–4, Craft Robo CC200/CC300, Silhouette SD 1–2.
 - Geometry extraction from paths, compound paths and groups, with automatic text
   outlining on a temporary duplicate — the user's artwork is never modified.
   Adaptive bézier flattening to 0.05 mm, the device's own resolution.
@@ -30,8 +30,7 @@ First release. Not yet tested against a physical cutter.
   and dry run.
 - Wire-protocol snapshot tests covering all 19 models, using the driver's
   `force_hardware` and `dry_run` support.
-- Two distribution formats: a `.zxp` extension, and a `.pkg` installer that
-  bundles its own Python runtime.
+- Distributed as a `.zxp` extension.
 
 ### Fixed
 
