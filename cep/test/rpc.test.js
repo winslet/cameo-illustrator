@@ -104,16 +104,14 @@ test("preview returns renderable SVG", async () => {
   });
 });
 
-test("a dry run completes without progress events", async () => {
-  // The driver reports progress from inside its USB write loop, which a dry run
-  // skips entirely — there is nothing to wait for, so there is nothing to
-  // report. Progress with real hardware is covered by the Python tests, which
-  // drive the callback directly. This test pins the dry-run contract so the
-  // panel is not written expecting events that will never arrive.
+test("progress events stream during a cut", async () => {
+  // Progress is reported between the packets safe_write sends. Before the patch
+  // in cameo_helper.patches it was never reported for plot data at all, which
+  // also meant Cancel did nothing for the whole job.
   await withClient(async (client) => {
     const many = [];
-    for (let i = 0; i < 200; i++) {
-      const y = 10 + i * 0.5;
+    for (let i = 0; i < 300; i++) {
+      const y = 10 + i * 0.4;
       many.push([[10, y], [100, y]]);
     }
 
@@ -124,8 +122,15 @@ test("a dry run completes without progress events", async () => {
       (event) => events.push(event)
     );
 
-    assert.strictEqual(result.path_count, 200);
-    assert.strictEqual(events.length, 0);
+    assert.strictEqual(result.path_count, 300);
+    assert.ok(events.length > 1, "expected several progress events");
+    assert.ok(events.every((e) => e.event === "progress"));
+
+    const percents = events.map((e) => e.percent);
+    assert.deepStrictEqual(percents, [...percents].sort((a, b) => a - b),
+      "progress must not go backwards");
+    assert.ok(percents.every((p) => p >= 0 && p <= 100),
+      "progress must stay within 0-100");
   });
 });
 

@@ -39,6 +39,21 @@ First release. Not yet tested against a physical cutter.
   compared `None` against a float when a barrier slice contained no segments.
   Confirmed against pristine upstream and patched at runtime in
   `helper/cameo_helper/patches.py`; reported upstream.
+- **Artwork on hidden or locked layers was being cut.** Illustrator does not
+  mark a layer's state on its children — a path on a hidden layer still reports
+  `hidden === false` — so checking only each item's own flags let hidden artwork
+  reach the machine. The ancestor chain is now walked. *Changes what reaches the
+  machine: hidden and locked layers are now genuinely excluded.*
+- **Cancel did nothing during a real cut, and the progress bar never moved.**
+  `plot()` sends geometry in ≤1024-byte packets, but the driver only reported
+  progress from a 4096-byte chunk loop that also skipped its first pass — so the
+  callback never fired for plot data, and it is the only place cancellation is
+  observed. Progress is now reported between packets.
+- **Pen media overshot its strokes when cutting without a mat.** The driver
+  infers pen mode from media 113, but only in `setup()`, which runs after the
+  matless strategy has already reordered the paths — so `MatFree` applied its
+  0.2 mm blade overshoot to pen work. *Changes what reaches the machine: pen
+  strokes are no longer extended.*
 
 ### Known limitations
 

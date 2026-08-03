@@ -181,6 +181,73 @@ test("y increases downward", () => {
   assert.ok(lower[1] > upper[1], "a point lower on the artboard must have a larger y");
 });
 
+// -- hidden and locked containers ------------------------------------------
+
+/*
+ * Illustrator does not push a layer's state down onto its children: a path on
+ * a hidden layer still reports hidden === false. Confirmed empirically — a
+ * document with art on a hidden layer and a locked layer extracted all three
+ * paths before this was fixed, so hidden artwork would have been cut.
+ *
+ * Mock nodes here mirror the shape of the real DOM: layers carry `visible`,
+ * page items carry `hidden`, and both carry `locked`.
+ */
+function doc() {
+  return { typename: "Document" };
+}
+function layer(props, parent) {
+  return Object.assign({ typename: "Layer", visible: true, locked: false,
+                         parent: parent || doc() }, props);
+}
+function group(props, parent) {
+  return Object.assign({ typename: "GroupItem", hidden: false, locked: false,
+                         parent: parent || doc() }, props);
+}
+function pathItem(parent) {
+  return { typename: "PathItem", hidden: false, locked: false, parent: parent };
+}
+
+test("art on a visible unlocked layer is collected", () => {
+  assert.strictEqual(
+    CameoExtract.inHiddenOrLockedContainer(pathItem(layer({}))), false);
+});
+
+test("art on a hidden layer is excluded", () => {
+  assert.strictEqual(
+    CameoExtract.inHiddenOrLockedContainer(pathItem(layer({ visible: false }))), true);
+});
+
+test("art on a locked layer is excluded", () => {
+  assert.strictEqual(
+    CameoExtract.inHiddenOrLockedContainer(pathItem(layer({ locked: true }))), true);
+});
+
+test("a hidden parent sublayer excludes art several levels down", () => {
+  const outer = layer({ visible: false });
+  const inner = layer({}, outer);
+  const g = group({}, inner);
+  assert.strictEqual(CameoExtract.inHiddenOrLockedContainer(pathItem(g)), true);
+});
+
+test("a hidden group excludes its children", () => {
+  assert.strictEqual(
+    CameoExtract.inHiddenOrLockedContainer(pathItem(group({ hidden: true }))), true);
+});
+
+test("an item directly on the document is not excluded", () => {
+  assert.strictEqual(CameoExtract.inHiddenOrLockedContainer(pathItem(doc())), false);
+});
+
+test("a missing parent does not throw", () => {
+  // Illustrator can raise when reading .parent on some items; the walk must
+  // fail open rather than aborting the whole extraction.
+  const item = { typename: "PathItem" };
+  Object.defineProperty(item, "parent", {
+    get() { throw new Error("no parent"); }
+  });
+  assert.strictEqual(CameoExtract.inHiddenOrLockedContainer(item), false);
+});
+
 // -- JSON serialisation ----------------------------------------------------
 
 test("serialiser escapes strings safely", () => {

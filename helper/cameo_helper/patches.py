@@ -54,6 +54,74 @@ def _patch_matfree_empty_slice() -> str | None:
     return "MatFree.decide_left2right: guard empty barrier slices"
 
 
+def _patch_progress_during_plot() -> str | None:
+    """Report progress while plot data is being sent, so Cancel works.
+
+    Without this, `progress_cb` is never called for the actual cut. `plot()`
+    sends geometry through `safe_write()`, which splits it into packets of at
+    most 1024 bytes; `write()` then reports progress from inside a loop that
+    chunks at 4096 bytes *and* skips the report on its first pass::
+
+        while o < len(data):
+            if o:                     # false on the first iteration
+                self.progress_cb(...)
+            chunk = data[o:o + 4096]
+
+    A packet of 1024 bytes is one iteration with ``o == 0``, so the callback
+    never fires. Two consequences: the progress bar sits still for the whole
+    cut, and — since the callback is where cancellation is observed — pressing
+    Cancel does nothing until the entire job has finished.
+
+    This wraps `safe_write` to report between packets. `safe_write` already
+    waits for the device to be ready between them, so they are natural points
+    to stop at, and 1KB granularity is far finer than a progress bar needs.
+
+    Verified against pristine upstream (commit 86b42f7); drop this if upstream
+    starts reporting progress from `safe_write`.
+    """
+    from silhouette.Graphtec import SilhouetteCameo  # type: ignore[import-not-found]
+
+    original = SilhouetteCameo.safe_write
+
+    if getattr(original, "_cameo_patched", False):
+        return None
+
+    def safe_write(self, data):
+        callback = getattr(self, "progress_cb", None)
+        if callback is None:
+            return original(self, data)
+
+        total = len(data) if data else 0
+        sent = [0]
+        bound_write = self.write
+
+        def counting_write(data=None, **kwargs):
+            # safe_write polls the device between packets via wait_for_ready,
+            # and those status queries come through write() too. Counting them
+            # would push `done` past `total` and make the bar jump.
+            if kwargs.get("is_query"):
+                return bound_write(data=data, **kwargs)
+
+            # Reported before the packet, so a cancel is seen without sending it.
+            callback(sent[0], total, "")
+            result = bound_write(data=data, **kwargs)
+            sent[0] += len(data) if data else 0
+            return result
+
+        # Shadow the bound method for the duration of this call only.
+        self.write = counting_write
+        try:
+            result = original(self, data)
+        finally:
+            del self.write  # restores the class method
+        callback(total, total, "")
+        return result
+
+    safe_write._cameo_patched = True  # type: ignore[attr-defined]
+    SilhouetteCameo.safe_write = safe_write
+    return "SilhouetteCameo.safe_write: report progress between packets"
+
+
 def apply_all() -> list[str]:
     """Apply every patch. Returns a description of each one applied."""
     global _applied
@@ -61,7 +129,7 @@ def apply_all() -> list[str]:
         return []
 
     applied = []
-    for patch in (_patch_matfree_empty_slice,):
+    for patch in (_patch_matfree_empty_slice, _patch_progress_during_plot):
         description = patch()
         if description:
             applied.append(description)
