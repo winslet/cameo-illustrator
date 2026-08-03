@@ -58,7 +58,7 @@ jobs:
           scripts/link-helper.sh
           python -m pip install --quiet pytest
           (cd helper && PYTHONPATH=. python -m pytest tests/ -q)
-          node --test "cep/test/*.test.js"
+          node --test cep/test/*.test.js
 
       # Adobe only ships ZXPSignCmd as an x86_64 binary; GitHub's macOS runners
       # are arm64 without Rosetta preinstalled.

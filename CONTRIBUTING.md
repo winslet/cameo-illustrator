@@ -88,6 +88,20 @@ under Node (`cep/test/host.test.js`) because the geometry maths is where the
 real bugs live, so keep it loadable outside Illustrator — no top-level DOM
 access.
 
+### The panel's JavaScript runs on Node 17
+
+`cep/js/*.js` executes inside CEP, which bundles **Node 17.7.2 and Chromium 99**
+— not whatever you have installed. Check with `process.versions` in the panel's
+console if you need to confirm.
+
+So the risk is reaching for something too *new*: no `structuredClone`,
+`Object.groupBy`, `toSorted`, `findLast`, or `Array.fromAsync`. Optional
+chaining and nullish coalescing are fine.
+
+CI's Node floor is 18 rather than 17 only because `node:test` did not exist
+before 18 — the suite cannot run on CEP's actual version, so this is one place
+where the tests passing is not by itself proof.
+
 ### Coordinates
 
 Millimetres, y-down, origin at the artboard's top-left, all the way from
