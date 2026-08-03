@@ -58,10 +58,13 @@ See [docs/packaging.md](docs/packaging.md).
 
 ## Installing
 
-Grab the `.pkg` installer or the `.zxp` extension from the
+Grab the `.zxp` extension from the
 [latest release](https://github.com/winslet/cameo-illustrator/releases) —
-see **[INSTALL.md](INSTALL.md)**. The installer needs nothing else; the `.zxp` is
-much smaller but needs a Python 3.9+ on your Mac.
+see **[INSTALL.md](INSTALL.md)**. It needs a Python 3.9+ on your Mac; everything
+else is inside it.
+
+The one-click `.pkg` installer needs no Python at all, but shipping it requires
+an Apple Developer ID for notarisation, so it is not published yet.
 
 Requires macOS 11+ and Adobe Illustrator 2020 (24.0) or newer. No Homebrew, no
 `pip`, no `libusb` install — everything else is bundled.

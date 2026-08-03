@@ -2,12 +2,28 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    # Both spellings. 'v*' is the convention, but a tag of a bare version is the
+    # easy mistake to make, and when it does not match here the symptom is a
+    # release carrying nothing but GitHub's automatic source archives — no failed
+    # run, no warning, nothing to notice. Matching both means a mistyped tag
+    # fails loudly on the version check below instead of silently doing nothing.
+    tags: ['v*', '[0-9]*']
+  # Creating a release through the GitHub web UI does not push a tag in a way
+  # that triggers the 'push' event above, so without this the whole workflow is
+  # skipped for anyone who releases by clicking rather than by pushing.
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
         description: 'Tag to release, e.g. v0.1.0'
         required: true
+
+# Pushing a tag and then publishing a release for it fires this twice. Queue
+# rather than cancel: a half-finished upload is worse than a redundant one.
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: write   # needed to create the release

@@ -149,16 +149,58 @@ xcrun notarytool log <submission-id> --keychain-profile cameo-notary
 
 ## Release checklist
 
-1. Run both suites — `npm run test:all`. **Do not release on a red suite**; the
-   per-model snapshots are the only protection for the 18 machines nobody here
-   owns.
-2. Bump `ExtensionBundleVersion` in `cep/CSXS/manifest.xml` (the build scripts
-   read the version from there) and `version` in `helper/pyproject.toml`.
-3. `scripts/build-zxp.sh`
-4. `scripts/build-installer.sh`
-5. Verify the installer on a Mac that has never had this installed:
-   `spctl --assess --type install -vv dist/CameoForIllustrator-<v>.pkg`
-6. Tag, and attach both artefacts to a GitHub release.
+`.github/workflows/release.yml` does the work: it runs both suites, builds and
+signs the `.zxp`, unpacks it and runs the helper out of the unpacked tree,
+generates checksums, and creates the GitHub release with the artefacts attached.
+**Pushing the tag is the whole release.** Do not build locally and upload by
+hand — a release must come from a public tagged commit to satisfy GPL-2.0, and
+the workflow is what guarantees that.
+
+1. Run both suites locally — `npm run test:all`. The workflow runs them too and
+   refuses to publish a red build, but finding out here is faster.
+2. Bump the version in all three places that carry it. They must agree, and the
+   workflow refuses to publish if the tag disagrees with the manifest:
+   - `ExtensionBundleVersion` (and the `Extension Version` attribute) in
+     `cep/CSXS/manifest.xml` — the build scripts read the version from here
+   - `version` in `helper/pyproject.toml`
+   - `version` in `package.json`
+3. Move the release's section in `CHANGELOG.md` out of *unreleased* and date it.
+4. Merge all of that to `main`.
+5. Tag and push:
+
+   ```bash
+   git tag v0.1.0 && git push origin v0.1.0
+   ```
+
+   **The tag must match the version**, with or without a leading `v`. `v0.1.0`
+   and `0.1.0` both build `0.1.0`; anything that disagrees with the manifest
+   fails the run with an explicit error rather than publishing a mislabelled
+   artefact.
+6. Watch it: `gh run watch --workflow=release.yml`. When it finishes, the
+   release exists with `cameo-illustrator-<version>.zxp` and `SHA256SUMS.txt`
+   attached.
+
+Creating the release through the GitHub web UI instead of pushing a tag works
+too — the workflow also triggers on a published release and attaches the
+artefacts to it.
+
+### If a release has no `.zxp` attached
+
+It carries only GitHub's automatic `Source code (zip)` and `(tar.gz)` — those
+are generated for every release and are not the extension. That means the
+workflow never ran, or ran and failed. Check with:
+
+```bash
+gh run list --workflow=release.yml
+```
+
+No runs at all means nothing triggered it. Delete the tag and the release, then
+push a correctly named tag:
+
+```bash
+gh release delete <tag> --yes
+git push origin :refs/tags/<tag>
+```
 
 ## GPL-2.0 obligations
 
