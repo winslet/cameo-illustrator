@@ -33,7 +33,7 @@ jobs:
     name: Build and publish the extension
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # On workflow_dispatch the default ref is the branch, not the tag the
           # user asked for — which would build the wrong commit.
