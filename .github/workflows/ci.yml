@@ -118,6 +118,12 @@ jobs:
         # Unquoted: the shell expands the glob. Node only globs from v22.
         run: node --test cep/test/*.test.js
 
+      # The matrix above is all far newer than the oldest supported host
+      # (Illustrator 2020 runs CEP 9 / Chromium 61), so it cannot catch syntax
+      # that would stop the panel loading there.
+      - name: Check panel syntax against the oldest supported host
+        run: node scripts/check-panel-syntax.js
+
   package:
     name: Package
     runs-on: macos-latest

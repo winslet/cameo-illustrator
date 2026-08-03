@@ -88,19 +88,45 @@ under Node (`cep/test/host.test.js`) because the geometry maths is where the
 real bugs live, so keep it loadable outside Illustrator — no top-level DOM
 access.
 
-### The panel's JavaScript runs on Node 17
+### The panel's JavaScript must parse on Chromium 61
 
-`cep/js/*.js` executes inside CEP, which bundles **Node 17.7.2 and Chromium 99**
-— not whatever you have installed. Check with `process.versions` in the panel's
-console if you need to confirm.
+`cep/js/*.js` executes inside CEP, whose version is decided by the *host
+application*, not by you. The manifest advertises Illustrator 2020 and newer, so
+the floor is what Illustrator 2020 ships:
 
-So the risk is reaching for something too *new*: no `structuredClone`,
-`Object.groupBy`, `toSorted`, `findLast`, or `Array.fromAsync`. Optional
-chaining and nullish coalescing are fine.
+| Illustrator | CEP | Chromium | Node |
+| --- | --- | --- | --- |
+| 2020 (24.x) — **our floor** | 9 | **61** | **8.6** |
+| 2021–2022 | 10–11 | 74–88 | 12–15 |
+| 2026 (30.x) | 12 | 99 | 17.7 |
 
-CI's Node floor is 18 rather than 17 only because `node:test` did not exist
-before 18 — the suite cannot run on CEP's actual version, so this is one place
-where the tests passing is not by itself proof.
+The risk is reaching for something too **new**. Write ES5-flavoured JavaScript
+and you will be fine; the existing panel code already does.
+
+This is sharper than an ordinary compatibility concern. **Optional chaining is a
+parse error in Chromium 61** — one `?.` does not degrade a feature, it stops the
+whole file loading and the panel never appears. And CI cannot catch it, because
+every Node version in the matrix is far newer than the floor.
+
+So there is a backstop:
+
+```bash
+node scripts/check-panel-syntax.js
+```
+
+It runs in CI and rejects constructs that postdate the floor — optional
+chaining, nullish coalescing, logical assignment, `globalThis`,
+`Object.fromEntries`, `flat`/`flatMap`, `replaceAll`, `structuredClone` and
+friends. It is a heuristic, not a parser, so it backs up this guidance rather
+than replacing it.
+
+If you genuinely need newer syntax, raise the `Host` range in
+`cep/CSXS/manifest.xml` first and update the table above — dropping support for
+older Illustrator versions is a decision to make deliberately, not a side effect.
+
+CI's Node floor is 18 because `node:test` did not exist before it. The suite
+therefore cannot run on any CEP version at all, which is exactly why the syntax
+check exists.
 
 ### Coordinates
 
