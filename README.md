@@ -1,19 +1,21 @@
-# Cameo for Illustrator
+<img src="docs/cameo-illustrator-logo.png" width="150">
+
+# Cameo Plugin for Illustrator
+
+Send artwork from Adobe Illustrator straight to a Silhouette cutting machine -
+no Silhouette Studio round-trip, no export step.
+
+<img src="docs/screenshot-1.png" width="300"> <img src="docs/screenshot-2.png" width="300">
+
+> **Status: Help needed to test with real hardware.** The full pipeline works end to end in simulation and
+> is covered by tests, but it has not yet been run against a physical cutter.
+> Treat the first real cut as a calibration exercise — see
+> [Before your first real cut](#before-your-first-real-cut).
 
 [![CI](https://github.com/winslet/cameo-illustrator/actions/workflows/ci.yml/badge.svg)](https://github.com/winslet/cameo-illustrator/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/winslet/cameo-illustrator?include_prereleases&sort=semver)](https://github.com/winslet/cameo-illustrator/releases)
 [![Licence: GPL-2.0](https://img.shields.io/badge/licence-GPL--2.0-blue.svg)](LICENSE)
 [![Machines supported](https://img.shields.io/badge/machines-19-brightgreen)](#supported-devices)
-
-Send artwork from Adobe Illustrator straight to a Silhouette cutting machine —
-no Silhouette Studio round-trip, no export step.
-
-<img src="docs/screenshot-1.png" width="300"> <img src="docs/screenshot-2.png" width="300">
-
-> **Status: pre-hardware.** The full pipeline works end to end in simulation and
-> is covered by tests, but it has not yet been run against a physical cutter.
-> Treat the first real cut as a calibration exercise — see
-> [Before your first real cut](#before-your-first-real-cut).
 
 ## Key features
 
@@ -98,8 +100,7 @@ All 19 machines below are driven by the vendored
 [inkscape-silhouette][upstream] driver and covered by per-model wire-protocol
 snapshot tests, so the exact byte stream each one receives is pinned in CI.
 
-**No model has been confirmed on physical hardware yet.** That is the project's
-single biggest gap, and the column below is what a
+**Functional testing on physical hardware required** The table below is what a
 [device report](https://github.com/winslet/cameo-illustrator/issues/new?template=device-report.yml)
 fills in — whether it worked or not.
 
@@ -136,14 +137,10 @@ means the driver does not carry a width for that model.
   Windows needs care: the usual approach there replaces the driver with Zadig,
   which breaks Silhouette Studio until reverted. The better path is to talk
   through `usbprint.sys` directly, avoiding the swap — designed for, not built.
-- **No hardware confirmation yet.** Everything is verified in simulation against
-  pinned per-model byte streams; no model has been run against a physical cutter.
 - **No Print & Cut.** Registration-mark sensing is supported by the underlying
   driver but not yet wired up in the panel.
 - **No Bluetooth.** The driver supports it on Linux and Windows; macOS lacks the
   Python RFCOMM socket support it relies on.
-- **Cancelling mid-cut** stops sending and sends the head home, but cannot undo
-  what has already been cut.
 
 ## Contributing
 
@@ -154,8 +151,7 @@ developer workflow.
 The single most useful thing you can contribute is a
 [device report](https://github.com/winslet/cameo-illustrator/issues/new?template=device-report.yml),
 whether it worked or not. This supports 19 machines that no one person owns, so
-a confirmed "Portrait 3 cuts correctly" genuinely moves the project forward — and
-a confirmed failure moves it further still.
+a confirmed "Portrait 3 cuts correctly" genuinely helps.
 
 ## Licence
 
