@@ -147,42 +147,76 @@ If notarisation rejects the build, read the actual reason rather than guessing:
 xcrun notarytool log <submission-id> --keychain-profile cameo-notary
 ```
 
-## Release checklist
+## Releasing
 
 `.github/workflows/release.yml` does the work: it runs both suites, builds and
 signs the `.zxp`, unpacks it and runs the helper out of the unpacked tree,
 generates checksums, and creates the GitHub release with the artefacts attached.
-**Pushing the tag is the whole release.** Do not build locally and upload by
-hand — a release must come from a public tagged commit to satisfy GPL-2.0, and
-the workflow is what guarantees that.
+**Do not build locally and upload by hand** — a release must come from a public
+tagged commit to satisfy GPL-2.0, and the workflow is what guarantees that.
 
-1. Run both suites locally — `npm run test:all`. The workflow runs them too and
-   refuses to publish a red build, but finding out here is faster.
-2. Bump the version in all three places that carry it. They must agree, and the
-   workflow refuses to publish if the tag disagrees with the manifest:
-   - `ExtensionBundleVersion` (and the `Extension Version` attribute) in
-     `cep/CSXS/manifest.xml` — the build scripts read the version from here
-   - `version` in `helper/pyproject.toml`
-   - `version` in `package.json`
-3. Move the release's section in `CHANGELOG.md` out of *unreleased* and date it.
-4. Merge all of that to `main`.
-5. Tag and push:
+The signing certificate is stored once, as repository secrets, and reused by
+every release. See *Wiring it into releases* above; you should not have to think
+about it again.
 
-   ```bash
-   git tag v0.1.0 && git push origin v0.1.0
-   ```
+### From the browser
 
-   **The tag must match the version**, with or without a leading `v`. `v0.1.0`
-   and `0.1.0` both build `0.1.0`; anything that disagrees with the manifest
-   fails the run with an explicit error rather than publishing a mislabelled
-   artefact.
-6. Watch it: `gh run watch --workflow=release.yml`. When it finishes, the
-   release exists with `cameo-illustrator-<version>.zxp` and `SHA256SUMS.txt`
-   attached.
+Nothing here needs a clone.
 
-Creating the release through the GitHub web UI instead of pushing a tag works
-too — the workflow also triggers on a published release and attaches the
-artefacts to it.
+1. **Actions → Prepare release → Run workflow**, and give it a version with no
+   leading `v`. It opens a pull request setting the version in all four places
+   and opening a `CHANGELOG.md` section.
+2. Write the changelog entry into that pull request, and merge it.
+3. **Releases → Draft a new release**, tag `vX.Y.Z` targeting `main`, and
+   **Publish**.
+
+Step 3 is deliberately left to you. A tag pushed with `GITHUB_TOKEN` does not
+trigger other workflows — GitHub suppresses that so workflows cannot retrigger
+each other — so a job that tagged on your behalf would publish a release with no
+`.zxp` attached, which is the exact failure this is built to prevent. Publishing
+from the Releases page is a human action, so it does trigger the build.
+
+The prepare pull request itself gets no CI, for the same reason. It changes only
+version strings, and nothing can ship without passing the checks below.
+
+### From a clone
+
+```bash
+scripts/bump-version.sh 0.2.0        # all four places, plus a CHANGELOG section
+```
+
+Write the changelog entry, merge to `main`, then:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+gh run watch --workflow=release.yml
+```
+
+### What is checked before anything is published
+
+- Both suites pass. **Never release on a red suite** — the per-model snapshots
+  are the only protection for the 18 machines nobody here owns.
+- All four versions agree (`scripts/bump-version.sh --check`).
+- The tag matches the manifest, with or without a leading `v`. `v0.2.0` and
+  `0.2.0` both build `0.2.0`; anything else fails with an explicit error rather
+  than publishing a mislabelled artefact.
+- The helper runs out of the unpacked `.zxp` with no virtualenv, no Homebrew and
+  no repository — the situation a user is actually in.
+
+### Where the version lives
+
+Four places, because four things read it. `scripts/bump-version.sh` sets them
+together, and `--check` fails the release if they drift:
+
+| File | Field |
+| --- | --- |
+| `cep/CSXS/manifest.xml` | `ExtensionBundleVersion` — what the build scripts read |
+| `cep/CSXS/manifest.xml` | the `<Extension … Version>` attribute |
+| `helper/pyproject.toml` | `version` |
+| `package.json` | `version` |
+
+The other `Version=` attributes in the manifest are CSXS and host versions, not
+ours. Leave them alone.
 
 ### If a release has no `.zxp` attached
 
