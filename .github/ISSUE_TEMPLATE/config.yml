@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or idea
+    url: https://github.com/winslet/cameo-illustrator/discussions
+    about: For anything that isn't a bug report or a device report.
+  - name: Device protocol issues
+    url: https://github.com/fablabnbg/inkscape-silhouette/issues
+    about: >-
+      This project vendors the inkscape-silhouette driver. If a machine speaks
+      the protocol incorrectly, the fix usually belongs upstream — but please
+      open an issue here too so it can be tracked.

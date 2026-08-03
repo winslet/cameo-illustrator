@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch or PR makes the older run pointless.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # Exercises the same vendoring path a release uses, rather than a
+      # pip install that would not prove the shipped layout works.
+      - name: Vendor Python dependencies
+        run: PYTHON=$(which python) scripts/vendor-pydeps.sh
+
+      - name: Install test tooling
+        run: python -m pip install --quiet pytest
+
+      - name: Run tests
+        working-directory: helper
+        run: PYTHONPATH=. python -m pytest tests/ -q
+
+  # The floor of the documented support range. Kept separate because pytest
+  # itself needs 3.10+, so this checks the runtime rather than running the suite
+  # — which is exactly the claim that matters: users run the helper, not pytest.
+  python-floor:
+    name: Python 3.9 runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Vendor Python dependencies
+        run: PYTHON=$(which python) scripts/vendor-pydeps.sh
+
+      - name: Helper self-test
+        run: PYTHONPATH=helper python -m cameo_helper --selftest
+
+      - name: Exercise the cut pipeline
+        run: |
+          PYTHONPATH=helper python - <<'PY'
+          from cameo_helper import jobs, simulator
+
+          square = [[(10, 10), (30, 10), (30, 30), (10, 30), (10, 10)]]
+          triangle = [[(50, 50), (70, 50), (60, 70), (50, 50)]]
+
+          plain = jobs.run_cut(jobs.CutParams(paths=square, dry_run=True))
+          assert plain.bbox["width_mm"] == 20.0, plain.bbox
+
+          # Covers the patched MatFree, which crashes upstream on disjoint shapes.
+          matless = jobs.run_cut(
+              jobs.CutParams(paths=square + triangle, dry_run=True, matless=True)
+          )
+          assert matless.path_count >= 2
+
+          decoded = simulator.parse(plain.transcript)
+          assert decoded.bbox() == (10.0, 10.0, 30.0, 30.0), decoded.bbox()
+          print("cut pipeline OK on the documented minimum Python")
+          PY
+
+  javascript:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The RPC tests spawn the real helper through the real resolver, so the
+      # checkout needs the same layout a dev install has.
+      - name: Prepare the helper
+        run: |
+          PYTHON=$(which python) scripts/vendor-pydeps.sh
+          scripts/link-helper.sh
+
+      - name: Run tests
+        run: node --test "cep/test/*.test.js"
+
+  package:
+    name: Package
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Adobe only ships ZXPSignCmd as an x86_64 binary, and GitHub's macOS
+      # runners are arm64 without Rosetta preinstalled.
+      - name: Install Rosetta
+        run: softwareupdate --install-rosetta --agree-to-license
+
+      - name: Build the extension
+        run: PYTHON=$(which python) scripts/build-zxp.sh
+
+      # Proves the packaged tree stands alone: no virtualenv, no Homebrew, no
+      # repository — the situation a user is actually in.
+      - name: Check the package works unpacked
+        run: |
+          mkdir -p /tmp/zxpcheck
+          unzip -q dist/*.zxp -d /tmp/zxpcheck
+          env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
+            PYTHONPATH=/tmp/zxpcheck/helper python -m cameo_helper --selftest
+
+      # Self-signed with a throwaway certificate generated in the runner, so it
+      # is fine for testing a branch but is not a release artefact.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zxp-preview-selfsigned
+          path: dist/*.zxp
+          retention-days: 14
+
+  shellcheck:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        run: shellcheck scripts/*.sh

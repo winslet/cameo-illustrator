@@ -1,0 +1,30 @@
+[project]
+name = "cameo-helper"
+version = "0.1.0"
+description = "Local helper that drives Silhouette cutters for the Illustrator panel"
+# 3.9 is deliberate, not accidental: it is what macOS itself ships with the
+# Command Line Tools, so many users need install nothing at all. The runtime is
+# verified against 3.9 and 3.14. The test suite needs 3.10+ because pytest does.
+requires-python = ">=3.9"
+license = { text = "GPL-2.0-only" }
+dependencies = [
+    "pyusb>=1.2",
+    "libusb1>=3.0",
+    # Carries prebuilt native libusb for macOS, Windows and Linux, which is what
+    # removes the "brew install libusb" step. See scripts/vendor-pydeps.sh.
+    "libusb>=1.0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+cameo-helper = "cameo_helper.__main__:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.setuptools.packages.find]
+include = ["cameo_helper*"]

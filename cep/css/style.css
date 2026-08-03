@@ -1,0 +1,329 @@
+/*
+ * Illustrator panels are narrow and sit inside a dark app chrome. Colours come
+ * from CSS variables so the panel can follow the host's theme, which CEP
+ * reports at startup (see applyTheme in main.js).
+ */
+
+:root {
+  --bg: #323232;
+  --bg-raised: #3a3a3a;
+  --border: #4a4a4a;
+  --text: #e8e8e8;
+  --text-dim: #a0a0a0;
+  --accent: #2d8cf0;
+  --accent-text: #ffffff;
+  --danger: #e05252;
+  --warn-bg: #4a3f22;
+  --warn-border: #7a6524;
+  --ok: #4caf50;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 11px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/*
+ * The panel is a fixed-height column: header and footer pinned, one scrolling
+ * region between them. #app itself must not scroll, or the footer scrolls away
+ * and the last controls end up hidden behind it.
+ */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+#scroll-area {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0; /* without this a flex child refuses to shrink below content */
+}
+
+/* -- header ------------------------------------------------------------- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+#device-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex: 0 0 auto;
+}
+.dot.connected { background: var(--ok); }
+.dot.error { background: var(--danger); }
+
+/* -- sections ----------------------------------------------------------- */
+
+/* Direct children of #app that must never shrink or scroll away. */
+#banner {
+  flex: 0 0 auto;
+}
+
+.panel-section {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-section h2 {
+  margin: 0 0 7px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  gap: 6px 8px;
+  align-items: center;
+}
+
+label { color: var(--text-dim); }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 4px 6px;
+  background: #2a2a2a;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font: inherit;
+}
+
+select { width: 100%; }
+
+input[type="number"]:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.hint {
+  margin: 7px 0 0;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.preset-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.cap {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 4px 0;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.check input { margin-top: 2px; flex: 0 0 auto; }
+.check em {
+  display: block;
+  color: var(--text-dim);
+  font-style: normal;
+  font-size: 10px;
+}
+
+/* -- banners and warnings ----------------------------------------------- */
+
+.banner {
+  padding: 8px 10px;
+  background: var(--warn-bg);
+  border-bottom: 1px solid var(--warn-border);
+  font-size: 10px;
+}
+.banner.error {
+  background: #4a2424;
+  border-bottom-color: #7a3434;
+}
+
+.warnings {
+  padding: 8px 10px;
+  background: var(--warn-bg);
+  border-bottom: 1px solid var(--warn-border);
+  font-size: 10px;
+}
+.warnings ul { margin: 0; padding-left: 15px; }
+
+/* -- footer ------------------------------------------------------------- */
+
+.actions {
+  padding: 10px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.status {
+  color: var(--text-dim);
+  margin-bottom: 7px;
+  min-height: 15px;
+  font-size: 10px;
+}
+.status.error { color: var(--danger); }
+.status.ok { color: var(--ok); }
+
+.progress {
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 7px;
+}
+#progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.15s linear;
+}
+
+.buttons { display: flex; gap: 6px; }
+
+button {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #454545;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: #505050; }
+button:disabled { opacity: 0.45; cursor: default; }
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+button.primary:hover:not(:disabled) { background: #1f7ad8; }
+
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.icon-btn {
+  flex: 0 0 auto;
+  width: 24px;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* -- preview overlay ---------------------------------------------------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  z-index: 10;
+}
+
+.overlay-inner {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.overlay-body {
+  padding: 10px;
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  text-align: center;
+}
+.overlay-body svg { max-width: 100%; height: auto; }
+
+.overlay-meta {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.hidden { display: none !important; }
+
+/* -- light host theme --------------------------------------------------- */
+
+body.theme-light {
+  --bg: #f0f0f0;
+  --bg-raised: #fafafa;
+  --border: #c8c8c8;
+  --text: #1e1e1e;
+  --text-dim: #666;
+  --warn-bg: #fdf3d5;
+  --warn-border: #e0c97a;
+}
+body.theme-light input[type="number"],
+body.theme-light select { background: #fff; }
+body.theme-light button { background: #e2e2e2; }
+body.theme-light .progress { background: #ddd; }

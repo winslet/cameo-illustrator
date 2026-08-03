@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  release:
+    name: Build and publish the extension
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # On workflow_dispatch the default ref is the branch, not the tag the
+          # user asked for — which would build the wrong commit.
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0   # release notes are generated from history
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve the version
+        id: version
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      # A tag that disagrees with the manifest would ship an artefact whose
+      # internal version contradicts its filename, and the extension's version
+      # is what Illustrator and any updater actually read.
+      - name: Check the tag matches the manifest
+        run: |
+          manifest=$(sed -n 's/.*ExtensionBundleVersion="\([^"]*\)".*/\1/p' \
+            cep/CSXS/manifest.xml | head -1)
+          expected="${{ steps.version.outputs.version }}"
+          if [ "$manifest" != "$expected" ]; then
+            echo "::error::Tag is ${{ steps.version.outputs.tag }} (version $expected) but cep/CSXS/manifest.xml says $manifest."
+            echo "Update ExtensionBundleVersion in the manifest, or retag."
+            exit 1
+          fi
+          echo "version $manifest confirmed"
+
+      # Never publish a red build. The per-model snapshots are the only
+      # protection for the machines no maintainer owns.
+      - name: Run tests
+        run: |
+          PYTHON=$(which python) scripts/vendor-pydeps.sh
+          scripts/link-helper.sh
+          python -m pip install --quiet pytest
+          (cd helper && PYTHONPATH=. python -m pytest tests/ -q)
+          node --test "cep/test/*.test.js"
+
+      # Adobe only ships ZXPSignCmd as an x86_64 binary; GitHub's macOS runners
+      # are arm64 without Rosetta preinstalled.
+      - name: Install Rosetta
+        run: softwareupdate --install-rosetta --agree-to-license
+
+      # Reusing one certificate across releases keeps the publisher identity
+      # stable for users. Without the secret we fall back to a throwaway
+      # self-signed certificate so the release still happens, but each release
+      # then looks like a different publisher — hence the warning below.
+      - name: Restore the signing certificate
+        id: cert
+        env:
+          CERT_P12_BASE64: ${{ secrets.ZXP_CERT_P12_BASE64 }}
+        run: |
+          if [ -n "$CERT_P12_BASE64" ]; then
+            mkdir -p .tools
+            echo "$CERT_P12_BASE64" | base64 --decode > .tools/release.p12
+            echo "have_cert=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::ZXP_CERT_P12_BASE64 is not set. Signing with a throwaway self-signed certificate; users will see a different publisher each release."
+            echo "have_cert=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the extension
+        env:
+          CERT_PASS: ${{ secrets.ZXP_CERT_PASSWORD }}
+        run: |
+          PYTHON="$(which python)"; export PYTHON
+          if [ "${{ steps.cert.outputs.have_cert }}" = "true" ]; then
+            if [ -z "${CERT_PASS:-}" ]; then
+              echo "::error::ZXP_CERT_P12_BASE64 is set but ZXP_CERT_PASSWORD is not."
+              exit 1
+            fi
+            CERT="$PWD/.tools/release.p12" scripts/build-zxp.sh
+          else
+            scripts/build-zxp.sh
+          fi
+
+      - name: Check the package works unpacked
+        run: |
+          mkdir -p /tmp/zxpcheck
+          unzip -q dist/*.zxp -d /tmp/zxpcheck
+          env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
+            PYTHONPATH=/tmp/zxpcheck/helper python -m cameo_helper --selftest
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          shasum -a 256 ./*.zxp > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
+          files: |
+            dist/*.zxp
+            dist/SHA256SUMS.txt
+          body: |
+            ## Install
+
+            Download the `.zxp` below and follow
+            [INSTALL.md](https://github.com/winslet/cameo-illustrator/blob/main/INSTALL.md).
+
+            You need a Python 3.9 or newer on your Mac — macOS may already have
+            one. Everything else, including libusb, is inside the package.
+
+            Your installer will warn that the extension comes from an **unknown
+            publisher**. That is expected: it is signed, but with a self-signed
+            certificate rather than one from a commercial authority.
+
+            > **Not yet tested on physical hardware.** Cut a 10 mm calibration
+            > square on scrap and measure it before committing real material.
+
+            Verify your download against `SHA256SUMS.txt`.

@@ -1,0 +1,13 @@
+{
+  "name": "cameo-illustrator",
+  "version": "0.1.0",
+  "description": "Send designs from Adobe Illustrator to a Silhouette cutter",
+  "license": "GPL-2.0-only",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"cep/test/*.test.js\"",
+    "test:py": "cd helper && PYTHONPATH=. ../.venv/bin/python -m pytest tests/ -q",
+    "test:all": "npm run test:py && npm test",
+    "selftest": "PYTHONPATH=helper .venv/bin/python -m cameo_helper --selftest"
+  }
+}
