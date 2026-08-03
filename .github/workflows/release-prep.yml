@@ -1,0 +1,85 @@
+name: Prepare release
+
+# Run from the Actions tab: pick a version, get a pull request that sets it
+# everywhere and opens a CHANGELOG section. Nothing here needs a clone, so a
+# release can be started from a browser.
+#
+# It deliberately stops at the pull request rather than tagging and publishing
+# by itself. A tag pushed with GITHUB_TOKEN does not trigger other workflows —
+# GitHub suppresses that to stop workflows retriggering each other — so a job
+# that tagged for you would produce exactly the failure this whole thing exists
+# to prevent: a release with no .zxp attached. Publishing from the Releases page
+# is a human action, so it does trigger the build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version, with no leading v — e.g. 0.2.0'
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    name: Open a release pull request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # Via the environment, never interpolated into the script body: an input
+      # substituted directly into a run block is executed by the shell, not
+      # passed to it. bump-version.sh rejects a malformed version, but that is
+      # too late if the shell has already run it.
+      - name: Set the version everywhere
+        env:
+          VERSION: ${{ inputs.version }}
+        run: scripts/bump-version.sh "$VERSION"
+
+      - name: Open the pull request
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="release/v$VERSION"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git commit -am "Prepare release v$VERSION"
+          git push --set-upstream origin "$branch"
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "Prepare release v$VERSION" \
+            --body "Sets the version to \`$VERSION\` in the manifest (twice), \
+          \`pyproject.toml\` and \`package.json\`, and opens a \`[$VERSION]\` \
+          section in the changelog.
+
+          **Write the changelog entry before merging** — this only did the \
+          mechanical part. Note especially anything that changes what bytes \
+          reach the machine.
+
+          ## Then, to release
+
+          1. Merge this.
+          2. Releases → **Draft a new release** → tag \`v$VERSION\` targeting \
+          \`main\` → **Publish**.
+
+          That triggers the release workflow, which runs both suites, builds and \
+          signs the \`.zxp\`, and attaches it with its checksum. It refuses to \
+          publish if the suites are red or the versions disagree.
+
+          ## No CI on this pull request
+
+          Expected: workflows do not run on pull requests opened by \
+          \`GITHUB_TOKEN\`. Nothing here touches panel, helper or driver code — \
+          and the release workflow runs the full suite before publishing \
+          anything, so a broken tree still cannot ship."
+
+          echo "Opened a pull request for v$VERSION"

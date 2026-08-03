@@ -51,6 +51,12 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
+      # The manifest is only one of four places the version is written, and the
+      # check below compares the tag against that one. Without this, the other
+      # three can disagree and still ship.
+      - name: Check the version is consistent
+        run: scripts/bump-version.sh --check
+
       # A tag that disagrees with the manifest would ship an artefact whose
       # internal version contradicts its filename, and the extension's version
       # is what Illustrator and any updater actually read.
