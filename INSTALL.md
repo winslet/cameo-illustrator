@@ -1,10 +1,16 @@
 # Installing Cameo for Illustrator
 
+> **Use Option 2, the `.zxp`.** It is the only artefact published so far. The
+> `.pkg` installer below is built and working, but shipping it needs an Apple
+> Developer ID for notarisation — without one Gatekeeper blocks it — so no
+> release carries it yet.
+
 Two ways to install. They give you the same panel — the difference is only how
 much setup you do.
 
 | | Installer (`.pkg`) | Extension (`.zxp`) |
 | --- | --- | --- |
+| Available | Not yet published | **Yes** |
 | Steps | Double-click, reopen Illustrator | Install Python, install the `.zxp` |
 | Needs Python | No — it brings its own | Yes, any Python 3.9 or newer |
 | Download | ~47 MB | ~1 MB |
@@ -16,6 +22,8 @@ or newer.
 ---
 
 ## Option 1 — the installer
+
+*Not yet published — see the note above. These steps are what it will look like.*
 
 1. Download `CameoForIllustrator-<version>.pkg` from the
    [latest release](https://github.com/winslet/cameo-illustrator/releases).

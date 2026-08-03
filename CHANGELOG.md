@@ -9,7 +9,7 @@ alters **what bytes reach the machine**.
 
 ## [Unreleased]
 
-## [0.1.0] — unreleased
+## [0.1.0] — 2026-08-03
 
 First release. Not yet tested against a physical cutter.
 
