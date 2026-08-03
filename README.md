@@ -3,99 +3,66 @@
 [![CI](https://github.com/winslet/cameo-illustrator/actions/workflows/ci.yml/badge.svg)](https://github.com/winslet/cameo-illustrator/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/winslet/cameo-illustrator?include_prereleases&sort=semver)](https://github.com/winslet/cameo-illustrator/releases)
 [![Licence: GPL-2.0](https://img.shields.io/badge/licence-GPL--2.0-blue.svg)](LICENSE)
-[![Machines supported](https://img.shields.io/badge/machines-19-brightgreen)](#)
+[![Machines supported](https://img.shields.io/badge/machines-19-brightgreen)](#supported-devices)
 
 Send artwork from Adobe Illustrator straight to a Silhouette cutting machine —
 no Silhouette Studio round-trip, no export step.
-
-Supports **19 machines**: Cameo 1–5 (including Plus, Pro, Alpha), Portrait 1–4,
-Curio, Craft Robo, and Silhouette SD.
 
 <img src="docs/screenshot-1.png" width="300"> <img src="docs/screenshot-2.png" width="300">
 
 > **Status: pre-hardware.** The full pipeline works end to end in simulation and
 > is covered by tests, but it has not yet been run against a physical cutter.
 > Treat the first real cut as a calibration exercise — see
-> [Verifying on hardware](#verifying-on-hardware).
+> [Before your first real cut](#before-your-first-real-cut).
 
-## How it works
+## Key features
 
-Illustrator has no public UXP API (as of 2026 Adobe still uses UXP internally for
-Illustrator only), so the panel is a **CEP extension** — the same technology
-Silhouette's own Connect plugin uses. CEP cannot reach USB, so a small local
-helper process does that part.
-
-```
-Illustrator
-├─ CEP panel (HTML/JS)        UI: material, tool settings, preview
-├─ ExtendScript               walks the document → flattens béziers → mm polylines
-│                             writes JSON to a temp file
-└─ panel spawns the helper and pipes to it
-     ↓ newline-delimited JSON over stdin/stdout
-cameo-helper (Python)
-├─ vendor/silhouette/         the inkscape-silhouette driver, vendored unmodified
-└─ simulator                  decodes the wire protocol back into geometry
-     ↓ USB (libusb)
-   your cutter
-```
-
-Two deliberate choices are worth knowing about:
-
-**The device protocol is vendored, not reimplemented.** `helper/vendor/silhouette/`
-holds the driver from [fablabnbg/inkscape-silhouette][upstream], byte-identical to
-upstream. It encodes years of reverse-engineered per-model quirks that would be
-foolish to rewrite. Fixes we need before upstream ships them live in
-`cameo_helper/patches.py` as documented runtime patches, so re-syncing stays a
-`git diff`. See [`helper/vendor/VENDOR.md`](helper/vendor/VENDOR.md).
-
-**The helper talks over stdio, not HTTP.** No port to collide with, no auth token
-to leak, no firewall prompt, and nothing listening on your machine.
-
-**Nothing we ship is compiled.** The helper's dependencies are all pure-Python
-wheels, and the `libusb` wheel carries prebuilt native libraries — so the `.zxp`
-contains no binary of ours to sign or notarise, and users need no Homebrew step.
-See [docs/packaging.md](docs/packaging.md).
+- **Cut straight from Illustrator.** No exporting, no Studio round-trip.
+- **19 machines supported** — Cameo 1–5 (including Plus, Pro and Alpha),
+  Cameo Pro MK-II, Portrait 1–4, Craft Robo and Silhouette SD. See
+  [Supported devices](#supported-devices).
+- **Honest preview.** *Preview* decodes the actual command stream the machine
+  would receive and draws it back as geometry, so you see what the cutter will
+  do, not an approximation of it. Preview never moves the machine.
+- **Material presets from the driver's own table** — picking a material sets
+  pressure, speed and blade depth on the machine, and the swatch shows the blade
+  cap Silhouette recommends.
+- **Your artwork is never modified.** Text is outlined automatically on a
+  temporary duplicate.
+- **Nothing is silently dropped.** Anything that can't be cut is listed in the
+  panel rather than quietly skipped.
+- **Bounding box only** traces just the outline of your design — a cheap sanity
+  check on scrap before committing an expensive sheet.
+- **Cut without a mat** reorders cuts so the material isn't pulled apart by a cut
+  upstream of where the blade still has to travel.
+- **Dry run** simulates a job end to end without moving the cutter.
+- **No Homebrew, no `pip`, no `libusb` install.** Everything the panel needs is
+  bundled.
 
 ## Installing
 
 Grab the `.zxp` extension from the
-[latest release](https://github.com/winslet/cameo-illustrator/releases) —
-see **[INSTALL.md](INSTALL.md)**. It needs a Python 3.9+ on your Mac; everything
-else is inside it.
+[latest release](https://github.com/winslet/cameo-illustrator/releases), then
+install it with a ZXP installer such as [ZXP Installer](https://zxpinstaller.com)
+and restart Illustrator completely.
 
-The one-click `.pkg` installer needs no Python at all, but shipping it requires
-an Apple Developer ID for notarisation, so it is not published yet.
+Full step-by-step instructions, including troubleshooting and uninstalling, are
+in **[INSTALL.md](INSTALL.md)**.
 
-Requires macOS 11+ and Adobe Illustrator 2020 (24.0) or newer. No Homebrew, no
-`pip`, no `libusb` install — everything else is bundled.
+**Requirements:** macOS 11 or newer, Adobe Illustrator 2020 (24.0) or newer, and
+any Python 3.9+ on your Mac. Everything else is inside the `.zxp`.
 
-## Developing
+## How to use
 
-```bash
-./scripts/dev-install.sh
-```
-
-Then **quit Illustrator completely and reopen it**, and find the panel under
-**Window → Extensions → Send to Silhouette**.
-
-The script enables CEP debug mode (required for unsigned extensions), symlinks
-the panel so your edits appear on reload, creates the virtualenv, vendors the
-Python dependencies, and runs a self-test.
-
-## Using it
-
-1. Select the paths you want to cut. With nothing selected, the whole artboard is
+1. Connect your Silhouette by USB and switch it on. The panel header shows the
+   model with a green dot when it finds one.
+2. Select the paths you want to cut. With nothing selected, the whole artboard is
    used.
-2. Pick a material. The presets come from the driver's own table and set pressure,
-   speed and blade depth on the machine; the swatch shows the recommended blade cap.
-3. Press **Preview** to see exactly what the machine would cut, decoded back from
-   the command stream it would receive. Preview never moves the machine.
-4. Press **Send to Silhouette**.
-
-**Bounding box only** traces the outline of your design — a cheap sanity check on
-scrap before committing to an expensive sheet. **Cut without a mat** reorders cuts
-so the material is not pulled apart by a cut upstream of where the blade still has
-to travel.
+3. Pick a material. This sets pressure, speed and blade depth on the machine; the
+   swatch shows the recommended blade cap.
+4. Press **Preview** to see exactly what the machine would cut, decoded back from
+   the command stream it would receive.
+5. Press **Send to Silhouette**.
 
 ### What gets cut
 
@@ -111,7 +78,7 @@ panel rather than silently dropped. Expand them first (**Object → Expand**).
 Clipping masks are ignored: everything inside a clipped group is cut, not just the
 visible part.
 
-## Verifying on hardware
+### Before your first real cut
 
 The first cut on a real machine is the one thing simulation cannot stand in for.
 
@@ -123,54 +90,45 @@ The first cut on a real machine is the one thing simulation cannot stand in for.
 Placement is worth checking too. The driver offsets designs by each machine's
 physical media margins, which differ per model — an original Cameo shifts 9 mm
 across, the Cameo 5 family 6 mm the other way. The panel tells you when your model
-does this.
+does this, and the Offset X and Y fields correct it.
 
-## Development
+## Supported devices
 
-```bash
-# Python: driver, jobs, per-model wire-protocol snapshots
-cd helper && PYTHONPATH=. ../.venv/bin/python -m pytest tests/ -q
+All 19 machines below are driven by the vendored
+[inkscape-silhouette][upstream] driver and covered by per-model wire-protocol
+snapshot tests, so the exact byte stream each one receives is pinned in CI.
 
-# JavaScript: bézier flattening, coordinate mapping, and the live RPC link
-node --test cep/test/*.test.js
+**No model has been confirmed on physical hardware yet.** That is the project's
+single biggest gap, and the column below is what a
+[device report](https://github.com/winslet/cameo-illustrator/issues/new?template=device-report.yml)
+fills in — whether it worked or not.
 
-# Check what the driver sees without opening Illustrator
-PYTHONPATH=helper .venv/bin/python -m cameo_helper --selftest
-```
+Legend: ✅ confirmed on hardware · ⚠️ reported with issues · ⚪ not yet reported
 
-To debug the panel itself, open <http://localhost:8088> in Chrome while it is open.
+| Machine | Cut width | Tested | Notes |
+| --- | --- | --- | --- |
+| Silhouette Cameo | 304 mm | ⚪ | Shifts designs 9 mm across, 1 mm down |
+| Silhouette Cameo 2 | 304 mm | ⚪ | |
+| Silhouette Cameo 3 | 304.8 mm | ⚪ | |
+| Silhouette Cameo 4 | 304.8 mm | ⚪ | |
+| Silhouette Cameo 4 Plus | 372 mm | ⚪ | |
+| Silhouette Cameo 4 Pro | 600 mm | ⚪ | |
+| Silhouette Cameo 5 | 330.2 mm | ⚪ | Shifts designs 6 mm the other way |
+| Silhouette Cameo 5 Plus | 372 mm | ⚪ | |
+| Silhouette Cameo 5 Alpha | 330.2 mm | ⚪ | Shifts 6 mm; higher max pressure (40) |
+| Silhouette Cameo 5 Alpha Plus | 372 mm | ⚪ | Shifts 6 mm; higher max pressure (40) |
+| Silhouette Cameo Pro MK-II | 609 mm | ⚪ | |
+| Silhouette Portrait | 206 mm | ⚪ | |
+| Silhouette Portrait 2 | 203 mm | ⚪ | |
+| Silhouette Portrait 3 | 203 mm | ⚪ | |
+| Silhouette Portrait 4 | 216 mm | ⚪ | |
+| Craft Robo CC200-20 | 200 mm | ⚪ | |
+| Craft Robo CC300-20 | not recorded | ⚪ | Legacy; no registration-mark support |
+| Silhouette SD 1 | not recorded | ⚪ | Legacy; no registration-mark support |
+| Silhouette SD 2 | not recorded | ⚪ | Legacy; no registration-mark support |
 
-### Wire-protocol snapshots
-
-`helper/tests/snapshots/` holds the exact byte stream each of the 19 models would
-receive for a fixture design, captured using the driver's `force_hardware` and
-`dry_run` options. So a change in behaviour for a machine nobody here owns shows up
-as a named test failure instead of as a ruined sheet of vinyl.
-
-After an intentional change:
-
-```bash
-cd helper && PYTHONPATH=. ../.venv/bin/python -m pytest tests/test_devices.py --snapshot-update
-```
-
-Review that diff carefully — it changes what real hardware receives.
-
-### Updating the vendored driver
-
-```bash
-./scripts/sync-vendor.sh          # show what changed upstream
-./scripts/sync-vendor.sh --apply  # take it, then run the tests
-```
-
-### Building releases
-
-```bash
-./scripts/build-zxp.sh                    # signed .zxp
-./scripts/build-installer.sh --unsigned   # .pkg payload, no certificates needed
-```
-
-Full release process, certificate setup and GPL obligations:
-**[docs/packaging.md](docs/packaging.md)**.
+Cut widths and margins come from the driver's own device table; "not recorded"
+means the driver does not carry a width for that model.
 
 ## Limitations
 
@@ -178,6 +136,8 @@ Full release process, certificate setup and GPL obligations:
   Windows needs care: the usual approach there replaces the driver with Zadig,
   which breaks Silhouette Studio until reverted. The better path is to talk
   through `usbprint.sys` directly, avoiding the swap — designed for, not built.
+- **No hardware confirmation yet.** Everything is verified in simulation against
+  pinned per-model byte streams; no model has been run against a physical cutter.
 - **No Print & Cut.** Registration-mark sensing is supported by the underlying
   driver but not yet wired up in the panel.
 - **No Bluetooth.** The driver supports it on Linux and Windows; macOS lacks the
@@ -187,7 +147,9 @@ Full release process, certificate setup and GPL obligations:
 
 ## Contributing
 
-Contributions are very welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+Contributions are very welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)**, and
+**[docs/development.md](docs/development.md)** for the architecture and the
+developer workflow.
 
 The single most useful thing you can contribute is a
 [device report](https://github.com/winslet/cameo-illustrator/issues/new?template=device-report.yml),

@@ -47,7 +47,6 @@ body:
     attributes:
       label: How did you install it?
       options:
-        - The .pkg installer
         - The .zxp extension
         - From source (scripts/dev-install.sh)
     validations:
