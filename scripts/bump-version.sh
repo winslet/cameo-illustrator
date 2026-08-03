@@ -21,6 +21,34 @@ PYPROJECT="$REPO_ROOT/helper/pyproject.toml"
 PACKAGE_JSON="$REPO_ROOT/package.json"
 CHANGELOG="$REPO_ROOT/CHANGELOG.md"
 
+# Semantic Versioning 2.0.0, which CHANGELOG.md says the project follows.
+#
+# Built from named parts because the prerelease grammar is where this gets
+# subtle: identifiers are dot-separated and each must be non-empty, so '0.2.0-.'
+# and '0.2.0-beta..1' are not versions — though the obvious single character
+# class accepts both. Numeric identifiers may not carry leading zeros either,
+# which is how '0.2.0-beta.01' gets in.
+#
+# Worth being exact about, because a malformed version is written to all four
+# files and so still looks consistent to --check. It would fail later, in
+# whichever of pip, npm or CEP parses it most strictly — after release.
+_num='(0|[1-9][0-9]*)'
+_identifier="(${_num}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+SEMVER="^${_num}\.${_num}\.${_num}(-${_identifier}(\.${_identifier})*)?\$"
+
+# No leading 'v'. The tag carries one by convention, the version does not, and a
+# 'v' that reached the manifest would fail the release workflow's tag check in a
+# way that reads as a mismatch rather than as the typo it is.
+validate_version() {
+  local version="$1" whence="$2"
+  if [[ ! "$version" =~ $SEMVER ]]; then
+    echo "Not a version: '$version' ($whence)." >&2
+    echo "Expected 0.2.0 or 0.2.0-beta.1 — no leading 'v', no empty or" >&2
+    echo "zero-padded identifiers." >&2
+    return 1
+  fi
+}
+
 # Read each copy from the file that owns it, rather than trusting one to speak
 # for the rest — the whole point is to catch them disagreeing.
 read_bundle_version() {
@@ -66,7 +94,11 @@ check_consistent() {
     return 1
   fi
 
+  # Agreeing is not enough on its own: four files can hold the same malformed
+  # string, whether hand-edited or set here before this check existed.
   echo
+  validate_version "$bundle" "read from cep/CSXS/manifest.xml" || return 1
+
   echo "All four agree on $bundle"
 }
 
@@ -87,13 +119,7 @@ if [[ -z "$VERSION" ]]; then
   exit 1
 fi
 
-# No leading 'v' here. The tag carries one by convention, the version does not,
-# and a 'v' that reaches the manifest would fail the release workflow's tag
-# check in a way that reads as a mismatch rather than a typo.
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-  echo "Not a version: '$VERSION'. Expected 0.2.0, or 0.2.0-beta1 — with no leading 'v'." >&2
-  exit 1
-fi
+validate_version "$VERSION" "requested"
 
 PREVIOUS="$(read_bundle_version)"
 if [[ "$VERSION" == "$PREVIOUS" ]]; then
