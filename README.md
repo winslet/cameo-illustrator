@@ -11,6 +11,8 @@ no Silhouette Studio round-trip, no export step.
 Supports **19 machines**: Cameo 1–5 (including Plus, Pro, Alpha), Portrait 1–4,
 Curio, Craft Robo, and Silhouette SD.
 
+<img src="docs/screenshot-1.png" width="300"> <img src="docs/screenshot-2.png" width="300">
+
 > **Status: pre-hardware.** The full pipeline works end to end in simulation and
 > is covered by tests, but it has not yet been run against a physical cutter.
 > Treat the first real cut as a calibration exercise — see
